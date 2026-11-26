@@ -7,6 +7,7 @@ import { TopBar } from '@/components/Chrome'
 import { draftKey, useFx, useLetter, useTheme, useToast } from '@/lib/providers'
 import { linkFor, pack } from '@/lib/codec'
 import { navigate } from '@/lib/router'
+import { kakaoReady, preloadKakao, shareKakao } from '@/lib/kakao'
 import { sfx, vibrate } from '@/lib/sound'
 import { CATS, today } from '@/lib/themes'
 
@@ -25,6 +26,7 @@ export default function Seal() {
   const [copied, setCopied] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
   const [showQr, setShowQr] = useState(false)
+  const [sending, setSending] = useState(false)
   const envRef = useRef<HTMLDivElement>(null)
   const ok = !!draft.c && !!draft.m.trim()
 
@@ -72,6 +74,8 @@ export default function Seal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(preloadKakao, [])
+
   useEffect(() => {
     if (!link) return
     QRCode.toDataURL(link, { margin: 1, width: 360, errorCorrectionLevel: 'L', color: { dark: '#3f2d22', light: '#fcf8ef' } })
@@ -95,6 +99,20 @@ export default function Seal() {
     toast('링크를 복사했어요')
     fx.burstAt(k.fx, document.getElementById('copy'), 24)
     setTimeout(() => setCopied(false), 1800)
+  }
+
+  const kakao = async () => {
+    if (sending) return
+    sfx.tap()
+    setSending(true)
+    fx.burstAt(k.fx, document.getElementById('kakao'), 18)
+    try {
+      await shareKakao({ data: link.split('#/m/')[1], cat: draft.c!, to: draft.t, from: draft.f })
+    } catch {
+      toast('카카오톡 공유를 불러오지 못했어요')
+    } finally {
+      setTimeout(() => setSending(false), 1200)
+    }
   }
 
   const preview = () => navigate(`/m/${link.split('#/m/')[1]}`)
@@ -138,6 +156,26 @@ export default function Seal() {
               <br />
               봉인을 뜯고 편지를 읽을 수 있어요.
             </p>
+            {kakaoReady() && (
+              <>
+                <motion.button
+                  id="kakao"
+                  className="kakao-share"
+                  onClick={kakao}
+                  disabled={sending}
+                  whileTap={{ scale: 0.97 }}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25, type: 'spring', stiffness: 220, damping: 20 }}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3.2C6.36 3.2 1.8 6.79 1.8 11.2c0 2.85 1.9 5.35 4.76 6.77l-.97 3.55c-.09.32.27.58.55.39l4.24-2.8c.53.06 1.07.09 1.62.09 5.64 0 10.2-3.58 10.2-8S17.64 3.2 12 3.2z" />
+                  </svg>
+                  <span>{sending ? '카카오톡 여는 중…' : '카카오톡으로 편지 보내기'}</span>
+                </motion.button>
+                <div className="or"><span>또는 링크로 보내기</span></div>
+              </>
+            )}
             <div className="linkbox">
               <input id="link" value={link} readOnly aria-label="만들어진 링크" onFocus={(e) => e.target.select()} />
               <button id="copy" className="btn small" onClick={copy}>

@@ -4,3 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "24"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@resvg/resvg-js"]

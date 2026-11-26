@@ -7,7 +7,7 @@
  *  응원   — 새벽 노을과 가끔 지나가는 별똥별
  *  사과   — 잔잔한 비, 편지를 다 읽으면 비가 그치고 무지개
  */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useTheme, type Mood } from '@/lib/providers'
 import type { Cat } from '@/lib/themes'
@@ -87,30 +87,59 @@ function Layer({ cat, mood }: { cat: Cat; mood: Mood }) {
 export function Atmosphere() {
   const { cat, mood } = useTheme()
 
+  const atmoRef = useRef<HTMLDivElement>(null)
+
   // 커서/기울기 → CSS 변수 (스포트라이트, 3D 틸트에 사용)
+  // 기울기 센서는 초당 수십 번 오기 때문에, 화면 프레임당 한 번만·눈에 띄는 변화가 있을 때만 반영합니다.
+  // --cx/--cy 는 스포트라이트만 쓰므로 .atmo 에만 둬서 페이지 전체 스타일 재계산을 피합니다.
   useEffect(() => {
     const root = document.documentElement.style
+    const atmo = atmoRef.current!.style
+    const next = { cx: -1, cy: -1, mx: 0, my: 0 }
+    const cur = { cx: -1, cy: -1, mx: 0, my: 0 }
+    let raf = 0
+    const flush = () => {
+      raf = 0
+      if (next.cx !== cur.cx || next.cy !== cur.cy) {
+        atmo.setProperty('--cx', `${next.cx}px`)
+        atmo.setProperty('--cy', `${next.cy}px`)
+        cur.cx = next.cx
+        cur.cy = next.cy
+      }
+      if (Math.abs(next.mx - cur.mx) >= 0.01 || Math.abs(next.my - cur.my) >= 0.01) {
+        root.setProperty('--mx', next.mx.toFixed(2))
+        root.setProperty('--my', next.my.toFixed(2))
+        cur.mx = next.mx
+        cur.my = next.my
+      }
+    }
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(flush)
+    }
     const onMove = (e: PointerEvent) => {
-      root.setProperty('--cx', `${e.clientX}px`)
-      root.setProperty('--cy', `${e.clientY}px`)
-      root.setProperty('--mx', ((e.clientX / innerWidth) * 2 - 1).toFixed(3))
-      root.setProperty('--my', ((e.clientY / innerHeight) * 2 - 1).toFixed(3))
+      next.cx = Math.round(e.clientX)
+      next.cy = Math.round(e.clientY)
+      next.mx = (e.clientX / innerWidth) * 2 - 1
+      next.my = (e.clientY / innerHeight) * 2 - 1
+      schedule()
     }
     const onTilt = (e: DeviceOrientationEvent) => {
       if (e.gamma == null || e.beta == null) return
-      root.setProperty('--mx', Math.max(-1, Math.min(1, e.gamma / 30)).toFixed(3))
-      root.setProperty('--my', Math.max(-1, Math.min(1, (e.beta - 45) / 30)).toFixed(3))
+      next.mx = Math.max(-1, Math.min(1, e.gamma / 30))
+      next.my = Math.max(-1, Math.min(1, (e.beta - 45) / 30))
+      schedule()
     }
-    addEventListener('pointermove', onMove)
-    addEventListener('deviceorientation', onTilt)
+    addEventListener('pointermove', onMove, { passive: true })
+    addEventListener('deviceorientation', onTilt, { passive: true })
     return () => {
+      cancelAnimationFrame(raf)
       removeEventListener('pointermove', onMove)
       removeEventListener('deviceorientation', onTilt)
     }
   }, [])
 
   return (
-    <div className="atmo" aria-hidden="true">
+    <div ref={atmoRef} className="atmo" aria-hidden="true">
       <div className="aura a" />
       <div className="aura b" />
       <div className="aura c" />

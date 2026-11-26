@@ -40,13 +40,15 @@ export class FxEngine {
     cancelAnimationFrame(this.raf)
     removeEventListener('resize', this.resize)
   }
+  private dpr = 1
+  private dirty = false
   private resize = () => {
-    const r = Math.min(2, devicePixelRatio || 1)
+    this.dpr = Math.min(2, devicePixelRatio || 1)
     this.W = innerWidth
     this.H = innerHeight
-    this.cv.width = this.W * r
-    this.cv.height = this.H * r
-    this.cx.setTransform(r, 0, 0, r, 0, 0)
+    this.cv.width = this.W * this.dpr
+    this.cv.height = this.H * this.dpr
+    this.cx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
   }
   private add(p: Partial<P>) {
     this.parts.push({ kind: 'dust', x: 0, y: 0, vx: 0, vy: 0, g: 0, r: rnd(0, 6), vr: rnd(-0.05, 0.05), s: 8, life: 1, decay: 0.006, drag: 1, sway: 0, ph: rnd(0, 6.28), a: 1, col: '#000', ...p })
@@ -109,9 +111,22 @@ export class FxEngine {
   }
   private loop = () => {
     const { cx } = this
+    this.raf = requestAnimationFrame(this.loop)
     this.tick++
-    cx.clearRect(0, 0, this.W, this.H)
     this.spawnAmbient()
+    // 그릴 것이 없으면 캔버스를 건드리지 않음 (빈 화면을 매 프레임 지우고 다시 합성하지 않도록)
+    if (!this.parts.length) {
+      if (this.dirty) {
+        cx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+        cx.clearRect(0, 0, this.W, this.H)
+        this.dirty = false
+      }
+      return
+    }
+    this.dirty = true
+    cx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    cx.clearRect(0, 0, this.W, this.H)
+    const d = this.dpr
     for (let i = this.parts.length - 1; i >= 0; i--) {
       const p = this.parts[i]
       p.vx *= p.drag
@@ -125,13 +140,13 @@ export class FxEngine {
         this.parts.splice(i, 1)
         continue
       }
-      cx.save()
+      // save/restore 대신 변환 행렬을 직접 지정 (같은 결과, 훨씬 가벼움)
+      const cos = Math.cos(p.r) * d
+      const sin = Math.sin(p.r) * d
+      cx.setTransform(cos, sin, -sin, cos, p.x * d, p.y * d)
       cx.globalAlpha = Math.min(1, p.life * 2.5) * p.a
-      cx.translate(p.x, p.y)
-      cx.rotate(p.r)
       this.shape(p)
-      cx.restore()
     }
-    this.raf = requestAnimationFrame(this.loop)
+    cx.globalAlpha = 1
   }
 }

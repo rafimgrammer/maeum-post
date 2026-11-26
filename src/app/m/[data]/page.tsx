@@ -1,6 +1,6 @@
 /** app/m/[data]/page.tsx — 받는 사람 화면. URL의 [data] 세그먼트에서 편지를 꺼냅니다. */
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react'
+import { AnimatePresence, animate, motion } from 'motion/react'
 import Loading from '@/app/loading'
 import { Envelope, Postmark, Stamp } from '@/components/Postal'
 import { Doodle } from '@/components/Chrome'
@@ -45,15 +45,17 @@ function Broken() {
 }
 
 /**
- * 한 번 톡 → 봉인이 갈라짐 → 덮개가 열리고 안쪽에서 빛이 번짐 → 편지가 쑥 올라옴
- * → 편지가 날아올라 커지며 접힌 종이가 펼쳐짐 → 단어가 잉크처럼 번지며 나타남
+ * 한 번 톡 → 봉인이 갈라짐 → 덮개가 천천히 열리고 안쪽에서 빛이 번짐 → 편지가 입구로 올라옴
+ * → 봉투는 아래로 내려가고 편지는 입구 밖으로 완전히 빠져나옴
+ * → 빠져나온 그 자리에서 편지가 커지며 접힌 종이가 펼쳐짐 → 단어가 잉크처럼 번지며 나타남
  */
-type Stage = 'closed' | 'breaking' | 'open' | 'rise' | 'card'
-const T_OPEN = 200
-const T_RISE = 560
-const T_CARD = 1120
+type Stage = 'closed' | 'breaking' | 'open' | 'rise' | 'out' | 'card'
+const T_OPEN = 380
+const T_RISE = 1250
+const T_OUT = 2250
+const T_CARD = 3150
 /** 카드가 펼쳐진 뒤 글자가 나오기 시작하는 시점(s) */
-const INK_START = 0.55
+const INK_START = 1.0
 
 function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => void }) {
   const k = CATS[L.c]
@@ -70,8 +72,25 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
   /* 글을 단어 단위로 쪼개고, 글이 길수록 간격을 좁혀 전체가 1.5초 안에 나오도록 */
   const tokens = useMemo(() => L.m.split(/(\s+)/).filter(Boolean), [L.m])
   const words = tokens.filter((t) => !/^\s+$/.test(t)).length
-  const step = Math.min(0.07, 1.5 / Math.max(words, 1))
-  const inkEnd = INK_START + words * step + 0.6
+  const step = Math.min(0.09, 2.2 / Math.max(words, 1))
+  const inkEnd = INK_START + words * step + 0.9
+  const ltRect = useRef<DOMRect | null>(null)
+
+  /* 봉투에서 빠져나온 편지 자리에서 카드가 시작되도록 (FLIP) */
+  useLayoutEffect(() => {
+    const el = cardRef.current
+    const l = ltRect.current
+    if (stage !== 'card' || !el || !l) return
+    const c = el.getBoundingClientRect()
+    const s = l.width / c.width
+    const dx = l.left + l.width / 2 - (c.left + c.width / 2)
+    const dy = l.top - c.top
+    const fold = Math.max(0, c.height - l.height / s)
+    el.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`
+    el.style.clipPath = `inset(0px 0px ${fold}px 0px)`
+    animate(el, { x: [dx, 0], y: [dy, 0], scale: [s, 1] }, { type: 'spring', stiffness: 38, damping: 13, mass: 1 })
+    animate(el, { clipPath: [`inset(0px 0px ${fold}px 0px)`, 'inset(-90px -90px -90px -90px)'] }, { delay: 0.3, duration: 1.05, ease: [0.6, 0, 0.2, 1] })
+  }, [stage])
 
   useEffect(() => {
     setCat(L.c)
@@ -95,14 +114,16 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
     vibrate([10, 30, 18])
     fx.crumbsAt(envRef.current?.querySelector('.seal') ?? null)
     later(T_OPEN, () => (setStage('open'), sfx.paper()))
-    later(T_RISE, () => {
-      setStage('rise')
-      fx.burstAt(k.fx, envRef.current?.querySelector('.lt') ?? envRef.current, 26)
+    later(T_RISE, () => setStage('rise'))
+    later(T_OUT, () => {
+      setStage('out')
+      sfx.whoosh()
+      fx.burstAt(k.fx, envRef.current?.querySelector('.lt') ?? envRef.current, 22)
     })
     later(T_CARD, () => {
+      ltRect.current = envRef.current?.querySelector('.lt')?.getBoundingClientRect() ?? null
       setStage('card')
-      sfx.whoosh()
-      later(260, () => {
+      later(650, () => {
         sfx.chime(k.notes)
         vibrate(14)
         const r = cardRef.current?.getBoundingClientRect()
@@ -152,7 +173,7 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
             className={`stage read-stage ${stage}`}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 140, scale: 0.86, rotate: 4, filter: 'blur(6px)', transition: { duration: 0.6, ease: [0.4, 0, 0.6, 1] } }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
           >
             <span className="bloom" aria-hidden="true" />
@@ -164,9 +185,12 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
               aria-label="봉투를 눌러 편지 열기"
               onClick={open}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open())}
-              whileTap={stage === 'closed' ? { scale: 0.95 } : undefined}
-              animate={stage === 'breaking' ? { scale: [0.95, 1.05, 1] } : { scale: 1 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 15 }}
+              whileTap={stage === 'closed' ? { scale: 0.96 } : undefined}
+              animate={{ scale: stage === 'breaking' ? [0.96, 1.04, 1] : 1, y: stage === 'out' ? 130 : 0 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 260, damping: 14 },
+                y: { duration: 0.95, ease: [0.5, 0, 0.25, 1] },
+              }}
             >
               <Envelope
                 icon={k.icon}
@@ -177,9 +201,10 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
                 font={L.s}
                 toLine={`To. ${L.t}`}
                 lines={L.m.split('\n').slice(0, 4).join('\n')}
-                open={stage === 'open' || stage === 'rise'}
+                open={stage === 'open' || stage === 'rise' || stage === 'out'}
                 rise={stage === 'rise'}
                 broken={stage !== 'closed'}
+                className={stage === 'out' ? 'out' : undefined}
               />
             </motion.div>
             <AnimatePresence>
@@ -196,13 +221,6 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
             key="card"
             ref={cardRef}
             className={`card f${L.s}`}
-            initial={{ opacity: 0, y: 170, scale: 0.56, rotateX: 38, rotateZ: -3, clipPath: 'inset(-60px -60px 64% -60px)' }}
-            animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0, rotateZ: 0, clipPath: 'inset(-60px -60px -12% -60px)' }}
-            transition={{
-              default: { type: 'spring', stiffness: 85, damping: 15, mass: 0.9 },
-              opacity: { duration: 0.25 },
-              clipPath: { delay: 0.18, duration: 0.75, ease: [0.65, 0, 0.25, 1] },
-            }}
             onPointerMove={tilt}
             onClick={finish}
             aria-live="polite"
@@ -215,7 +233,7 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
                 className="cstamp"
                 initial={{ opacity: 0, scale: 1.8, rotate: -20 }}
                 animate={{ opacity: 1, scale: 1, rotate: 5 }}
-                transition={{ delay: 0.75, type: 'spring', stiffness: 300, damping: 14 }}
+                transition={{ delay: 1.3, type: 'spring', stiffness: 260, damping: 15 }}
               >
                 <Stamp cat={L.c} />
               </motion.div>
@@ -223,7 +241,7 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
                 className="cpm"
                 initial={{ opacity: 0, scale: 1.4 }}
                 animate={{ opacity: 0.72, scale: 1 }}
-                transition={{ delay: 0.95, duration: 0.25, ease: 'easeOut' }}
+                transition={{ delay: 1.55, duration: 0.3, ease: 'easeOut' }}
               >
                 <Postmark date={L.d || '오늘'} />
               </motion.div>

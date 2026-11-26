@@ -319,14 +319,28 @@ textarea { display: block; width: 100%; border: 0; background: transparent; resi
 .read-title { margin-top: 14px; }
 .arrive { font-size: 15px; color: var(--ink2); margin-top: 6px; }
 .read-stage .env { --w: min(340px, 82vw); transform: perspective(900px) rotateX(calc(var(--my) * -8deg)) rotateY(calc(var(--mx) * 10deg)); transition: transform .3s ease-out; }
-.hold-wrap { --p: 0; animation: jit .09s linear infinite; }
-@keyframes jit { 25% { translate: calc(var(--p) * -2.5px) calc(var(--p) * 1px); } 75% { translate: calc(var(--p) * 2.5px) calc(var(--p) * -1px); } }
-.read-stage .seal { cursor: pointer; }
-.read-stage .seal .h { transform: scale(calc(1 - var(--p) * .12)); transition: transform .1s; }
-.read-stage.idle .seal::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--wax); animation: ping 1.8s ease-out infinite; opacity: 0; pointer-events: none; }
+/* 한 번 톡 → 열기 */
+.tap-env { position: relative; z-index: 1; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.tap-env:focus-visible .env { outline: 2px dashed var(--accent); outline-offset: 10px; border-radius: 12px; }
+.read-stage.closed .seal::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--wax); animation: ping 1.8s ease-out infinite; opacity: 0; pointer-events: none; }
 @keyframes ping { 0% { transform: scale(.8); opacity: .6; } 100% { transform: scale(1.7); opacity: 0; } }
-.idle .hold-wrap > .env { animation: float 4s ease-in-out infinite; }
+.read-stage.closed .tap-env > .env { animation: float 4s ease-in-out infinite, nudge 5s 2.4s ease-in-out infinite; }
 @keyframes float { 50% { translate: 0 -10px; } }
+@keyframes nudge { 0%, 88%, 100% { rotate: 0deg; } 91% { rotate: -2.2deg; } 94% { rotate: 1.8deg; } 97% { rotate: -.8deg; } }
+/* 받는 화면에서는 더 경쾌하게 열림 */
+.read-stage .env .flap { transition: transform .55s cubic-bezier(.55, 0, .2, 1), z-index 0s .27s; }
+.read-stage .env .lt { transition: transform .62s cubic-bezier(.2, .9, .25, 1.05); }
+.read-stage .env.rise .lt { transform: translateY(-66%); }
+.read-stage .env .seal { transition: opacity .2s .15s, transform .3s; }
+.read-stage .seal .h { transition: transform .55s var(--ease), opacity .5s ease; }
+/* 봉투 안쪽에서 번지는 빛 */
+.bloom { position: absolute; left: 50%; top: 52%; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--a3) 85%, #fff) 0%, color-mix(in srgb, var(--a1) 55%, transparent) 38%, transparent 68%);
+  opacity: 0; transform: scale(.4); transition: opacity .5s ease, transform .9s var(--ease); mix-blend-mode: screen; }
+.read-stage.open .bloom, .read-stage.rise .bloom { opacity: 1; transform: scale(1); }
+.read-stage.rise .bloom { transform: scale(1.35); }
+.tap-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 1px; animation: tapdot 1.6s ease-in-out infinite; }
+@keyframes tapdot { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 50% { transform: scale(.7); box-shadow: 0 0 0 7px transparent; } }
 .hint { margin-top: 26px; font-size: 15px; color: var(--ink2); animation: bob 2s ease-in-out infinite; }
 @keyframes bob { 50% { transform: translateY(-5px); } }
 
@@ -348,8 +362,16 @@ textarea { display: block; width: 100%; border: 0; background: transparent; resi
 .card .w { font-size: 19px; line-height: 36px; position: relative; }
 .card.f1 .w { font-size: 27px; }
 .card .body { min-height: 144px; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
-.card .body.typing::after { content: ''; display: inline-block; width: 2px; height: 1.05em; background: var(--accent); vertical-align: -3px; margin-left: 2px; animation: blink 1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
+/* 단어가 잉크처럼 번지며 나타남 */
+.ink-w, .ink-line { animation: ink .7s var(--d, 0s) cubic-bezier(.2, .7, .2, 1) both; }
+.ink-w { display: inline-block; }
+@keyframes ink { 0% { opacity: 0; filter: blur(7px); transform: translateY(7px) scale(.96); color: var(--accent); } 55% { opacity: 1; color: var(--accent); } 100% { opacity: 1; filter: blur(0); transform: none; } }
+.card .instant .ink-w, .card .ink-line.instant { animation-duration: .25s; animation-delay: 0s; }
+/* 펼쳐질 때 종이 위를 한 번 훑는 빛 */
+.sheen { position: absolute; inset: 0; border-radius: 4px; pointer-events: none; overflow: hidden; z-index: 1; }
+.sheen::before { content: ''; position: absolute; top: -20%; bottom: -20%; width: 45%; left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .75), transparent); animation: sheen 1.1s .55s cubic-bezier(.4, 0, .2, 1) both; }
+@keyframes sheen { to { left: 120%; } }
 .card .from { text-align: right; margin-top: 8px; }
 .doodle { position: absolute; left: 18px; bottom: 14px; width: 110px; height: 74px; overflow: visible; pointer-events: none; }
 .doodle path { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .75; }

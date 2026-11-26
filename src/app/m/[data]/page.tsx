@@ -1,5 +1,5 @@
 /** app/m/[data]/page.tsx — 받는 사람 화면. URL의 [data] 세그먼트에서 편지를 꺼냅니다. */
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import Loading from '@/app/loading'
 import { Envelope, Postmark, Stamp } from '@/components/Postal'
@@ -44,8 +44,16 @@ function Broken() {
   )
 }
 
+/**
+ * 한 번 톡 → 봉인이 갈라짐 → 덮개가 열리고 안쪽에서 빛이 번짐 → 편지가 쑥 올라옴
+ * → 편지가 날아올라 커지며 접힌 종이가 펼쳐짐 → 단어가 잉크처럼 번지며 나타남
+ */
 type Stage = 'closed' | 'breaking' | 'open' | 'rise' | 'card'
-const HOLD_MS = 900
+const T_OPEN = 200
+const T_RISE = 560
+const T_CARD = 1120
+/** 카드가 펼쳐진 뒤 글자가 나오기 시작하는 시점(s) */
+const INK_START = 0.55
 
 function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => void }) {
   const k = CATS[L.c]
@@ -53,87 +61,65 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
   const { reset } = useLetter()
   const fx = useFx()
   const [stage, setStage] = useState<Stage>('closed')
-  const [progress, setProgress] = useState(0)
-  const [typed, setTyped] = useState(0)
+  const [done, setDone] = useState(false)
+  const [instant, setInstant] = useState(false)
   const envRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLElement>(null)
-  const hold = useRef({ on: false, p: 0, last: 0, raf: 0 })
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
-  const done = typed >= L.m.length && stage === 'card'
+
+  /* 글을 단어 단위로 쪼개고, 글이 길수록 간격을 좁혀 전체가 1.5초 안에 나오도록 */
+  const tokens = useMemo(() => L.m.split(/(\s+)/).filter(Boolean), [L.m])
+  const words = tokens.filter((t) => !/^\s+$/.test(t)).length
+  const step = Math.min(0.07, 1.5 / Math.max(words, 1))
+  const inkEnd = INK_START + words * step + 0.6
 
   useEffect(() => {
     setCat(L.c)
     setMood('idle')
     fx.setAmbient({ kind: 'dust', rate: 0.12 })
     const t = timers.current
-    const h = hold.current
-    return () => {
-      t.forEach(clearTimeout)
-      cancelAnimationFrame(h.raf)
-    }
+    return () => t.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const later = (ms: number, f: () => void) => timers.current.push(setTimeout(f, ms))
-
-  const breakSeal = useCallback(() => {
-    setStage('breaking')
-    sfx.crack()
-    vibrate([12, 40, 24])
-    fx.crumbsAt(envRef.current?.querySelector('.seal') ?? null)
-    later(450, () => (setStage('open'), sfx.paper()))
-    later(1150, () => setStage('rise'))
-    later(2100, () => {
-      setStage('card')
-      sfx.chime(k.notes)
-      fx.setAmbient({ kind: k.fx, rate: 0.18 })
-      later(80, () => fx.burst(k.fx, innerWidth / 2, Math.min(innerHeight * 0.55, (cardRef.current?.getBoundingClientRect().top ?? 200) + 140), 90))
-      later(5200, () => fx.setAmbient({ kind: k.fx, rate: 0.05 }))
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [k])
-
-  /* 꾹 누르기: 누르고 있으면 링이 차오르고, 떼면 다시 줄어듭니다 */
-  const frame = useCallback(
-    (now: number) => {
-      const h = hold.current
-      const dt = now - (h.last || now)
-      h.last = now
-      h.p = Math.max(0, Math.min(1, h.p + (h.on ? dt / HOLD_MS : -dt / 400)))
-      setProgress(h.p)
-      if (h.p >= 1) {
-        h.on = false
-        breakSeal()
-        return
-      }
-      if (h.on || h.p > 0) h.raf = requestAnimationFrame(frame)
-    },
-    [breakSeal],
-  )
-  const press = () => {
-    if (stage !== 'closed' || hold.current.on) return
-    hold.current.on = true
-    hold.current.last = 0
-    sfx.tap()
-    vibrate(8)
-    cancelAnimationFrame(hold.current.raf)
-    hold.current.raf = requestAnimationFrame(frame)
-  }
-  const release = () => {
-    hold.current.on = false
-  }
-
-  /* 타자기처럼 한 글자씩 */
-  useEffect(() => {
-    if (stage !== 'card' || typed >= L.m.length) return
-    const ch = L.m[typed - 1]
-    const t = setTimeout(() => setTyped((n) => n + 1), typed === 0 ? 650 : /[.,!?\n]/.test(ch) ? 260 : 45)
-    return () => clearTimeout(t)
-  }, [stage, typed, L.m])
 
   useEffect(() => {
     if (done) setMood('opened')
   }, [done, setMood])
+
+  const later = (ms: number, f: () => void) => timers.current.push(setTimeout(f, ms))
+
+  const open = () => {
+    if (stage !== 'closed') return
+    setStage('breaking')
+    sfx.crack()
+    vibrate([10, 30, 18])
+    fx.crumbsAt(envRef.current?.querySelector('.seal') ?? null)
+    later(T_OPEN, () => (setStage('open'), sfx.paper()))
+    later(T_RISE, () => {
+      setStage('rise')
+      fx.burstAt(k.fx, envRef.current?.querySelector('.lt') ?? envRef.current, 26)
+    })
+    later(T_CARD, () => {
+      setStage('card')
+      sfx.whoosh()
+      later(260, () => {
+        sfx.chime(k.notes)
+        vibrate(14)
+        const r = cardRef.current?.getBoundingClientRect()
+        fx.burst(k.fx, innerWidth / 2, r ? r.top + Math.min(r.height, innerHeight) * 0.35 : innerHeight * 0.4, 80)
+        fx.setAmbient({ kind: k.fx, rate: 0.18 })
+      })
+      later(inkEnd * 1000, () => setDone(true))
+      later(6000, () => fx.setAmbient({ kind: k.fx, rate: 0.05 }))
+    })
+  }
+
+  /* 글이 나오는 도중에 카드를 누르면 바로 전부 보여 줌 */
+  const finish = () => {
+    if (done) return
+    setInstant(true)
+    setDone(true)
+  }
 
   const tilt = (e: RPointerEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -146,6 +132,7 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
     navigate('/pick')
   }
 
+  let wi = 0
   return (
     <section className="screen reader">
       <Reveal d={0}>
@@ -158,17 +145,29 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
         <p className="arrive">{L.f ? `${L.f}님이 ${k.name}의 마음을 담아 보냈어요` : `누군가 ${k.name}의 마음을 담아 보냈어요`}</p>
       </Reveal>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         {stage !== 'card' ? (
           <motion.div
             key="env"
-            className={`stage read-stage ${stage === 'closed' ? 'idle' : ''}`}
+            className={`stage read-stage ${stage}`}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 60, scale: 0.85, filter: 'blur(4px)' }}
+            exit={{ opacity: 0, y: 140, scale: 0.86, rotate: 4, filter: 'blur(6px)', transition: { duration: 0.6, ease: [0.4, 0, 0.6, 1] } }}
             transition={{ duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
           >
-            <div ref={envRef} className="hold-wrap" style={{ '--p': progress } as React.CSSProperties}>
+            <span className="bloom" aria-hidden="true" />
+            <motion.div
+              ref={envRef}
+              className="tap-env"
+              role="button"
+              tabIndex={0}
+              aria-label="봉투를 눌러 편지 열기"
+              onClick={open}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open())}
+              whileTap={stage === 'closed' ? { scale: 0.95 } : undefined}
+              animate={stage === 'breaking' ? { scale: [0.95, 1.05, 1] } : { scale: 1 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 15 }}
+            >
               <Envelope
                 icon={k.icon}
                 cat={L.c}
@@ -181,52 +180,69 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
                 open={stage === 'open' || stage === 'rise'}
                 rise={stage === 'rise'}
                 broken={stage !== 'closed'}
-                progress={stage === 'closed' ? progress : undefined}
-                sealProps={{
-                  role: 'button',
-                  tabIndex: 0,
-                  'aria-label': '봉인을 꾹 눌러 편지 열기',
-                  onPointerDown: (e) => {
-                    e.preventDefault()
-                    // 봉투가 둥실 떠다녀도 손가락을 놓기 전까지는 계속 누르고 있는 것으로 봅니다
-                    e.currentTarget.setPointerCapture?.(e.pointerId)
-                    press()
-                  },
-                  onPointerUp: release,
-                  onPointerCancel: release,
-                  onContextMenu: (e) => e.preventDefault(),
-                  onKeyDown: (e) => (e.key === 'Enter' || e.key === ' ') && !e.repeat && (e.preventDefault(), press()),
-                  onKeyUp: release,
-                }}
               />
-            </div>
-            {stage === 'closed' && (
-              <p className="hint">
-                {progress > 0 ? '조금만 더…' : '봉인을 꾹 눌러 뜯어 보세요'}
-              </p>
-            )}
+            </motion.div>
+            <AnimatePresence>
+              {stage === 'closed' && (
+                <motion.p className="hint" exit={{ opacity: 0, y: 8, transition: { duration: 0.2 } }}>
+                  <span className="tap-dot" aria-hidden="true" />
+                  봉투를 톡 눌러 열어 보세요
+                </motion.p>
+              )}
+            </AnimatePresence>
           </motion.div>
         ) : (
           <motion.article
             key="card"
             ref={cardRef}
             className={`card f${L.s}`}
-            initial={{ opacity: 0, y: 80, rotateX: -75, scale: 0.7 }}
-            animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 70, damping: 14 }}
+            initial={{ opacity: 0, y: 170, scale: 0.56, rotateX: 38, rotateZ: -3, clipPath: 'inset(-60px -60px 64% -60px)' }}
+            animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0, rotateZ: 0, clipPath: 'inset(-60px -60px -12% -60px)' }}
+            transition={{
+              default: { type: 'spring', stiffness: 85, damping: 15, mass: 0.9 },
+              opacity: { duration: 0.25 },
+              clipPath: { delay: 0.18, duration: 0.75, ease: [0.65, 0, 0.25, 1] },
+            }}
             onPointerMove={tilt}
-            onClick={() => setTyped(L.m.length)}
+            onClick={finish}
             aria-live="polite"
           >
             <div className="card-in">
               <span className="glare" aria-hidden="true" />
+              <span className="sheen" aria-hidden="true" />
               <span className={`washi washi-${L.c}`} aria-hidden="true" />
-              <div className="cstamp"><Stamp cat={L.c} /></div>
-              <div className="cpm"><Postmark date={L.d || '오늘'} /></div>
-              <p className="tag">{k.name} · {k.en}</p>
-              <p className="w">To. {L.t}</p>
-              <div className={`w body ${typed < L.m.length ? 'typing' : ''}`}>{L.m.slice(0, typed)}</div>
-              <p className="w from">{L.f || '마음을 담아'} 드림</p>
+              <motion.div
+                className="cstamp"
+                initial={{ opacity: 0, scale: 1.8, rotate: -20 }}
+                animate={{ opacity: 1, scale: 1, rotate: 5 }}
+                transition={{ delay: 0.75, type: 'spring', stiffness: 300, damping: 14 }}
+              >
+                <Stamp cat={L.c} />
+              </motion.div>
+              <motion.div
+                className="cpm"
+                initial={{ opacity: 0, scale: 1.4 }}
+                animate={{ opacity: 0.72, scale: 1 }}
+                transition={{ delay: 0.95, duration: 0.25, ease: 'easeOut' }}
+              >
+                <Postmark date={L.d || '오늘'} />
+              </motion.div>
+              <p className="tag ink-line" style={{ '--d': `${INK_START - 0.2}s` } as CSSProperties}>{k.name} · {k.en}</p>
+              <p className="w ink-line" style={{ '--d': `${INK_START - 0.1}s` } as CSSProperties}>To. {L.t}</p>
+              <div className={`w body ${instant ? 'instant' : ''}`} aria-label={L.m}>
+                {tokens.map((t, i) =>
+                  /^\s+$/.test(t) ? (
+                    t
+                  ) : (
+                    <span key={i} className="ink-w" aria-hidden="true" style={{ '--d': `${INK_START + wi++ * step}s` } as CSSProperties}>
+                      {t}
+                    </span>
+                  ),
+                )}
+              </div>
+              <p className={`w from ink-line ${instant ? 'instant' : ''}`} style={{ '--d': `${inkEnd - 0.45}s` } as CSSProperties}>
+                {L.f || '마음을 담아'} 드림
+              </p>
               <Doodle cat={L.c} play={done} />
             </div>
           </motion.article>
@@ -235,7 +251,7 @@ function LetterView({ letter: L, onReplay }: { letter: Letter; onReplay: () => v
 
       <AnimatePresence>
         {done && (
-          <motion.div className="after" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.8 }}>
+          <motion.div className="after" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: instant ? 0.1 : 0.4, duration: 0.7 }}>
             <MagneticButton onClick={reply}>
               <span>{L.f ? `${L.f}님에게 답장 쓰기` : '답장 쓰기'}</span>
               <Arrow />

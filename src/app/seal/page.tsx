@@ -189,9 +189,6 @@ export default function Seal() {
             <button className="ghost" onClick={fresh} style={{ marginTop: 14 }}>
               새 편지 쓰기
             </button>
-            {location.protocol === 'file:' && (
-              <p className="note">지금은 내 컴퓨터에서 파일로 열려 있어요. 다른 사람에게 보내려면 웹에 올린 주소에서 링크를 만들어 주세요.</p>
-            )}
           </motion.div>
         )}
       </AnimatePresence>

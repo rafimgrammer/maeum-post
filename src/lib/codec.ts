@@ -60,4 +60,5 @@ export async function unpack(s: string): Promise<Letter> {
   }
 }
 
-export const linkFor = (data: string) => `${location.href.split('#')[0]}#/m/${data}`
+export const SITE_URL = 'https://maeum-post.netlify.app/'
+export const linkFor = (data: string) => `${SITE_URL}#/m/${data}`

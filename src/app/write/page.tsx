@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion, useAnimationControls } from 'motion/react'
 import { Stamp } from '@/components/Postal'
+import { PhotoPicker } from '@/components/Polaroid'
 import { TopBar } from '@/components/Chrome'
 import { Arrow, MagneticButton, Reveal, SplitText } from '@/components/Motion'
 import { useFx, useLetter, useTheme } from '@/lib/providers'
@@ -114,6 +115,10 @@ export default function Write() {
           </label>
         </Reveal>
       </motion.div>
+
+      <Reveal d={2} className="photo-wrap">
+        <PhotoPicker photo={draft.photo} cap={draft.cap} onPhoto={(photo) => update({ photo })} onCap={(cap) => update({ cap })} />
+      </Reveal>
 
       <Reveal d={2} className="tools">
         <div className="fonts" role="group" aria-label="글씨체">

@@ -83,6 +83,8 @@ interface EnvelopeProps {
   pm?: string
   font?: number
   progress?: number
+  /** 편지에 함께 넣은 사진 (작은 폴라로이드로 편지에 꽂혀 들어감) */
+  photo?: string | null
   sealProps?: HTMLAttributes<HTMLDivElement>
   className?: string
   style?: CSSProperties
@@ -97,6 +99,11 @@ export function Envelope(p: EnvelopeProps) {
       <div className={`lt w f${p.font ?? 0}`}>
         <b>{p.toLine ?? 'To. 소중한 너에게'}</b>
         {p.lines ?? '늘 고마운 마음,\n오늘은 꼭 전하고 싶어서\n짧게 적어 봐요.'}
+        {p.photo && (
+          <span className="lt-photo" aria-hidden="true">
+            <img src={p.photo} alt="" />
+          </span>
+        )}
       </div>
       <div className="pocket" />
       <div className="flap" />

@@ -399,6 +399,87 @@ textarea { display: block; width: 100%; border: 0; background: transparent; resi
 .doodle-congrats path:not(:first-child) { fill: color-mix(in srgb, #e0b54a 40%, transparent); stroke: #c9962e; }
 .after { margin-top: 28px; width: 100%; display: flex; flex-direction: column; align-items: center; }
 
+/* ---------- 폴라로이드 사진 ---------- */
+.polaroid { --ps: 92px; position: relative; display: inline-block; width: calc(var(--ps) + 12px); }
+.pframe { position: relative; display: block; padding: 6px 6px 22px; background: #fdfcf8; border-radius: 2px; transform: rotate(5deg);
+  box-shadow: 0 10px 18px -10px rgba(63, 45, 34, .5), 0 1px 2px rgba(63, 45, 34, .18); touch-action: none; user-select: none; -webkit-user-select: none; }
+.pframe.clickable { cursor: zoom-in; }
+.pframe.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.pphoto { position: relative; width: var(--ps); aspect-ratio: 1; overflow: hidden; background: #ece6da; }
+.pphoto img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.pveil { position: absolute; inset: 0; background: #f6f2ea; pointer-events: none; }
+/* 필름 그레인 + 비네트 */
+.pphoto::before { content: ''; position: absolute; inset: 0; z-index: 1; opacity: .28; pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .4288  0 0 0 0 .3212  0 0 0 0 .2118  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+.pphoto::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; box-shadow: inset 0 0 18px rgba(40, 25, 10, .32); }
+.pcap { height: 22px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Pen Script', cursive; font-size: 17px; line-height: 1; color: var(--ink); overflow: hidden; white-space: nowrap; }
+.pcap-input { width: 100%; height: 22px; border: 0; outline: none; background: transparent; text-align: center; font-family: 'Nanum Pen Script', cursive; font-size: 17px; color: var(--ink); }
+.pcap-input::placeholder { color: color-mix(in srgb, var(--ink2) 55%, transparent); }
+.pclip { position: absolute; left: 50%; top: -20px; width: 14px; height: 34px; margin-left: -7px; z-index: 3; transform: rotate(-4deg); filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .25)); }
+/* 현상이 끝나는 순간 짧은 반짝임 */
+.pframe.flash .pphoto { animation: pflash .7s ease-out; }
+@keyframes pflash { 0% { box-shadow: 0 0 0 0 rgba(255, 250, 230, 0); } 25% { box-shadow: 0 0 22px 6px rgba(255, 250, 230, .95); filter: brightness(1.35); } 100% { box-shadow: 0 0 0 0 rgba(255, 250, 230, 0); filter: none; } }
+.polaroid.big { --ps: 300px; }
+.polaroid.big .pframe { padding: 12px 12px 58px; transform: rotate(-2deg); box-shadow: 0 40px 60px -30px rgba(0, 0, 0, .55); cursor: default; }
+.polaroid.big .pcap { height: 58px; font-size: 34px; }
+.polaroid.big .pclip { top: -30px; width: 20px; height: 50px; margin-left: -10px; }
+
+/* 쓰기 화면: 사진 한 장 넣기 */
+.photo-wrap { width: 100%; }
+.photo-slot { width: 100%; margin-top: 18px; display: flex; flex-direction: column; align-items: center; }
+.photo-empty { display: flex; align-items: center; gap: 16px; width: 100%; padding: 14px 18px; border-radius: 10px; text-align: left;
+  border: 1.5px dashed rgba(63, 45, 34, .25); background: rgba(255, 255, 255, .3); transition: border-color .25s, background .25s; }
+.photo-empty:hover, .photo-empty.over { border-color: var(--accent); background: rgba(255, 255, 255, .6); }
+.ghostframe { --ps: 46px; flex: none; padding: 4px 4px 13px; transform: rotate(-5deg); box-shadow: 0 4px 10px -6px rgba(63, 45, 34, .45); }
+.ghostframe .pphoto { display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 10%, #f3eee4); }
+.ghostframe .pphoto::before, .ghostframe .pphoto::after { display: none; }
+.ghostframe svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
+.photo-empty-txt { display: flex; flex-direction: column; gap: 3px; }
+.photo-empty-txt b { font-size: 16px; }
+.photo-empty-txt small { font-size: 12.5px; color: var(--ink2); }
+.photo-busy { display: flex; align-items: center; gap: 16px; padding: 10px 0; font-size: 14px; color: var(--ink2); }
+.pframe.skel { --ps: 90px; transform: rotate(-3deg); }
+.pframe.skel .pphoto { background: linear-gradient(110deg, #eee7da 30%, #faf6ee 50%, #eee7da 70%); background-size: 250% 100%; animation: shimmer 1.2s linear infinite; }
+.pframe.skel .pphoto::before, .pframe.skel .pphoto::after { display: none; }
+.photo-ready { display: flex; align-items: center; gap: 22px; padding: 18px 8px 4px; }
+.photo-edit { position: relative; border-radius: 6px; transition: transform .25s var(--spring); }
+.photo-edit.over { transform: scale(1.05) rotate(-3deg); }
+.photo-crop.can .pphoto { cursor: grab; }
+.photo-crop.can:active .pphoto { cursor: grabbing; }
+.photo-x { position: absolute; right: -10px; top: -8px; z-index: 4; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ink); color: var(--paper2); box-shadow: 0 4px 10px -4px rgba(0, 0, 0, .5); transition: transform .2s var(--spring); }
+.photo-x:hover { transform: scale(1.12) rotate(90deg); }
+.photo-x svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.photo-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
+.photo-size { font-size: 13px; color: var(--ink2); }
+.photo-tip { font-size: 12px; color: color-mix(in srgb, var(--ink2) 75%, transparent); }
+.ghost.small { padding: 7px 12px; margin-left: -12px; font-size: 13.5px; }
+.photo-err { margin-top: 6px; color: var(--wax); font-size: 13.5px; }
+.photo-err:empty { margin: 0; }
+
+/* 봉투 속 편지에 꽂힌 작은 폴라로이드 */
+.env .lt-photo { position: absolute; right: 7%; top: 9%; width: 24%; padding: 2.5% 2.5% 7%; background: #fdfcf8; transform: rotate(5deg);
+  box-shadow: 0 3px 6px -3px rgba(63, 45, 34, .5); transition: opacity .4s ease; }
+.env .lt-photo img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.read-stage .env .lt-photo img { filter: brightness(1.9) saturate(0) contrast(.45) sepia(.2); }
+.read-stage .env.out .lt-photo { opacity: 0; }
+
+/* 봉인 결과 */
+.photo-note { margin: -2px 0 12px; }
+.pill.strong { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, rgba(255, 255, 255, .5)); }
+
+/* 받는 화면: 편지 오른쪽 위에 꽂힌 사진 */
+.card-photo { float: right; position: relative; z-index: 2; width: 104px; margin: 4px -10px 6px 12px; text-align: center; }
+.polaroid-ph { width: 96px; height: 118px; }
+.shake-hint { margin: 10px -30px 0; font-family: 'Nanum Pen Script', cursive; font-size: 16px; line-height: 1.1; white-space: nowrap; color: var(--accent); animation: bob 2s ease-in-out infinite; }
+.photo-zoom { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 24px;
+  background: rgba(30, 20, 12, .55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: zoom-out; }
+.photo-zoom > div { cursor: default; }
+.zoom-close { position: absolute; top: 18px; right: 18px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(252, 248, 239, .9); color: var(--ink); }
+.zoom-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+@media (max-width: 420px) { .card-photo { width: 96px; margin-right: -8px; } }
+
 /* ---------- 로딩 / 404 ---------- */
 .loading { justify-content: center; min-height: 70vh; gap: 22px; }
 .skel-env { position: relative; width: 220px; aspect-ratio: 1.58; border-radius: 10px; overflow: hidden;

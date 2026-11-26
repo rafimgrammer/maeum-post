@@ -72,7 +72,8 @@ export function FxProvider({ children }: { children: ReactNode }) {
 /* =========================================================
    Letter — 작성 중인 편지 (새로고침해도 유지되도록 sessionStorage)
    ========================================================= */
-export interface Draft { c: Cat | null; t: string; f: string; m: string; s: FontId }
+export interface DraftPhoto { b64: string; mime: 'image/webp' | 'image/jpeg' }
+export interface Draft { c: Cat | null; t: string; f: string; m: string; s: FontId; photo?: DraftPhoto; cap?: string }
 const EMPTY: Draft = { c: null, t: '', f: '', m: '', s: 0 }
 interface LetterCtx {
   draft: Draft
@@ -83,7 +84,8 @@ interface LetterCtx {
 }
 const LetterContext = createContext<LetterCtx>(null!)
 export const useLetter = () => useContext(LetterContext)
-export const draftKey = (d: Draft) => JSON.stringify([d.c, d.t, d.f, d.m, d.s])
+/** 내용(사진·캡션 포함)이 바뀌면 키가 달라져 다시 봉인합니다 */
+export const draftKey = (d: Draft) => JSON.stringify([d.c, d.t, d.f, d.m, d.s, d.photo?.b64 ?? '', d.cap ?? ''])
 
 export function LetterProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<Draft>(() => {
@@ -95,7 +97,11 @@ export function LetterProvider({ children }: { children: ReactNode }) {
   })
   const [sealed, setSealed] = useState<LetterCtx['sealed']>(null)
   useEffect(() => {
-    sessionStorage.setItem('mp-draft', JSON.stringify(draft))
+    try {
+      sessionStorage.setItem('mp-draft', JSON.stringify(draft))
+    } catch {
+      /* 저장 공간이 꽉 차도 작성은 계속 */
+    }
   }, [draft])
   const update = useCallback((p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p })), [])
   const reset = useCallback((p: Partial<Draft> = {}) => setDraft({ ...EMPTY, ...p }), [])

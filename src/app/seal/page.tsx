@@ -5,7 +5,8 @@ import QRCode from 'qrcode'
 import { Envelope } from '@/components/Postal'
 import { TopBar } from '@/components/Chrome'
 import { draftKey, useFx, useLetter, useTheme, useToast } from '@/lib/providers'
-import { linkFor, pack } from '@/lib/codec'
+import { linkFor, pack, packPhoto, unb64u } from '@/lib/codec'
+import { usePhotoUrl } from '@/components/Polaroid'
 import { navigate } from '@/lib/router'
 import { kakaoReady, preloadKakao, shareKakao } from '@/lib/kakao'
 import { sfx, vibrate } from '@/lib/sound'
@@ -29,6 +30,7 @@ export default function Seal() {
   const [sending, setSending] = useState(false)
   const envRef = useRef<HTMLDivElement>(null)
   const ok = !!draft.c && !!draft.m.trim()
+  const photoUrl = usePhotoUrl(draft.photo)
 
   useEffect(() => {
     if (!ok) {
@@ -45,9 +47,11 @@ export default function Seal() {
   useEffect(() => {
     if (!ok || already) return
     let alive = true
-    pack({ c: draft.c!, t: draft.t, f: draft.f, m: draft.m, s: draft.s, d: today() }).then((d) => {
+    const cap = draft.photo && draft.cap?.trim() ? { cap: draft.cap.trim().slice(0, 12) } : {}
+    pack({ c: draft.c!, t: draft.t, f: draft.f, m: draft.m, s: draft.s, d: today(), ...cap }).then((d) => {
       if (!alive) return
-      const l = linkFor(d)
+      const ph = draft.photo ? packPhoto(unb64u(draft.photo.b64), draft.photo.mime) : ''
+      const l = linkFor(d + ph)
       setLink(l)
       setSealed({ key, link: l })
     })
@@ -143,6 +147,7 @@ export default function Seal() {
             cat={draft.c}
             pm={today()}
             font={draft.s}
+            photo={photoUrl}
           />
         </motion.div>
       </div>
@@ -186,15 +191,24 @@ export default function Seal() {
                 </AnimatePresence>
               </button>
             </div>
+            {draft.photo && (
+              <p className="note photo-note">
+                {qr
+                  ? '사진이 담겨서 링크가 길어졌어요. 메신저에서 잘 안 열리면 QR 우편 라벨로 보내 보세요.'
+                  : '사진이 담겨서 링크가 길어졌어요. 메신저에서 잘 안 열리면 위의 링크를 복사해서 보내 보세요.'}
+              </p>
+            )}
             <div className="btns">
               {'share' in navigator && (
                 <button className="pill" onClick={() => navigator.share({ title: '마음 우체국', text: `${draft.t}님에게 편지가 도착했어요`, url: link }).catch(() => {})}>
                   공유하기
                 </button>
               )}
-              <button className="pill" onClick={() => (sfx.tap(), setShowQr((v) => !v))} aria-expanded={showQr}>
-                QR 우편 라벨
-              </button>
+              {qr && (
+                <button className={`pill ${draft.photo ? 'strong' : ''}`} onClick={() => (sfx.tap(), setShowQr((v) => !v))} aria-expanded={showQr}>
+                  QR 우편 라벨
+                </button>
+              )}
               <button className="pill" onClick={preview}>받는 화면 미리보기</button>
               <button className="pill" onClick={() => navigate('/write')}>고쳐 쓰기</button>
             </div>

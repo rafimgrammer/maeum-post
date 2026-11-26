@@ -328,16 +328,16 @@ textarea { display: block; width: 100%; border: 0; background: transparent; resi
 @keyframes float { 50% { translate: 0 -10px; } }
 @keyframes nudge { 0%, 88%, 100% { rotate: 0deg; } 91% { rotate: -2.2deg; } 94% { rotate: 1.8deg; } 97% { rotate: -.8deg; } }
 /* 받는 화면에서는 더 경쾌하게 열림 */
-.read-stage .env .flap { transition: transform .85s cubic-bezier(.45, 0, .2, 1), z-index 0s .42s; }
-.read-stage .env .lt { transition: transform 1s cubic-bezier(.4, 0, .2, 1); }
+.read-stage .env .flap { transition: transform .7s cubic-bezier(.45, 0, .2, 1), z-index 0s .35s; }
+.read-stage .env .lt { transition: transform .82s cubic-bezier(.4, 0, .2, 1); }
 .read-stage .env.rise .lt { transform: translateY(-55%); }
 .read-stage .env .seal { transition: opacity .3s .25s, transform .4s; }
 .read-stage .seal .h { transition: transform .8s var(--ease), opacity .7s ease; }
 /* 봉투는 아래로 내려가며 사라지고, 편지는 입구 밖으로 완전히 빠져나옴 */
-.read-stage .env.out .lt { transform: translateY(-103%); color: transparent; transition: transform .95s cubic-bezier(.5, 0, .25, 1), color .45s ease; }
+.read-stage .env.out .lt { transform: translateY(-103%); color: transparent; transition: transform .8s cubic-bezier(.5, 0, .25, 1), color .4s ease; }
 .read-stage .env .lt b { transition: color .45s ease; }
 .read-stage .env.out .lt b { color: transparent; }
-.read-stage .env.out > :not(.lt) { opacity: 0; transition: opacity .6s .35s ease; }
+.read-stage .env.out > :not(.lt) { opacity: 0; transition: opacity .5s .28s ease; }
 /* 봉투 안쪽에서 번지는 빛 */
 .bloom { position: absolute; left: 50%; top: 52%; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%; pointer-events: none; z-index: 0;
   background: radial-gradient(circle, color-mix(in srgb, var(--a3) 85%, #fff) 0%, color-mix(in srgb, var(--a1) 55%, transparent) 38%, transparent 68%);
@@ -368,14 +368,14 @@ textarea { display: block; width: 100%; border: 0; background: transparent; resi
 .card.f1 .w { font-size: 27px; }
 .card .body { min-height: 144px; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
 /* 단어가 잉크처럼 번지며 나타남 */
-.ink-w, .ink-line { animation: ink .95s var(--d, 0s) cubic-bezier(.2, .7, .2, 1) both; }
+.ink-w, .ink-line { animation: ink .85s var(--d, 0s) cubic-bezier(.2, .7, .2, 1) both; }
 .ink-w { display: inline-block; }
 @keyframes ink { 0% { opacity: 0; filter: blur(7px); transform: translateY(7px) scale(.96); color: var(--accent); } 55% { opacity: 1; color: var(--accent); } 100% { opacity: 1; filter: blur(0); transform: none; } }
 .card .instant .ink-w, .card .ink-line.instant { animation-duration: .25s; animation-delay: 0s; }
 /* 펼쳐질 때 종이 위를 한 번 훑는 빛 */
 .sheen { position: absolute; inset: 0; border-radius: 4px; pointer-events: none; overflow: hidden; z-index: 1; }
 .sheen::before { content: ''; position: absolute; top: -20%; bottom: -20%; width: 45%; left: -60%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .75), transparent); animation: sheen 1.4s 1.15s cubic-bezier(.4, 0, .2, 1) both; }
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .75), transparent); animation: sheen 1.25s 1s cubic-bezier(.4, 0, .2, 1) both; }
 @keyframes sheen { to { left: 120%; } }
 .card .from { text-align: right; margin-top: 8px; }
 .doodle { position: absolute; left: 18px; bottom: 14px; width: 110px; height: 74px; overflow: visible; pointer-events: none; }
